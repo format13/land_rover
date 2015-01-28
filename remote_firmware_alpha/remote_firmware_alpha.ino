@@ -21,29 +21,54 @@ Last modified: 27 Jan 2015
 int joy_x_pin = A0;    // select the input pin for the potentiometer
 int joy_y_pin = A1;
 int joy_button_pin = 7;
-int ledPin = 13;      // select the pin for the LED
+int bluetooth_status_pin = 8;
+//int tx_to_bluetooth = 1;
+
 int joy_x_value = 0;  // variable to store the value coming from the sensor
 int joy_y_value = 0;
+int joy_x_raw = 0;
+int joy_x_modified = 0;
+int joy_y_raw = 0;
+int joy_y_modified = 0;
+int bluetooth_status = 0;
 
 int x_old_range, y_old_range;
 int x_new_range, y_new_range;
 int x_old_max = 1022, y_old_max = 1022;
 int x_old_min = 20, y_old_min = 20;
 int x_new_max = 100, y_new_max = 100;
-int x_new_min =  0, y_new_min =  0;
+int x_new_min = -100, y_new_min = 0;
 
 LiquidCrystal_I2C lcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin, BACKLIGHT_PIN, POSITIVE);
 
 void setup(){
-  pinMode(ledPin, OUTPUT); 
   pinMode(joy_button_pin, INPUT);
+  pinMode(bluetooth_status_pin, INPUT);
+  //pinMode(tx_to_bluetooth, OUTPUT);
+  
   Serial.begin(9600); 
+  
+//set x range
+  x_old_range = (x_old_max - x_old_min);
+  x_new_range = (x_new_max - x_new_min);
+//set y range
+  y_old_range = (y_old_max - y_old_min);
+  y_new_range = (y_new_max - y_new_min);
+
 
   lcd.begin(20,4);
   lcd.home();
   lcd.clear();
   
-
+  while(bluetooth_status == 0){
+    bluetooth_status = digitalRead(bluetooth_status_pin);
+    lcd.print("Bluetooth");
+    lcd.setCursor(0,1);
+    lcd.print("Not Connected");  
+    Serial.print(bluetooth_status);
+    delay(100); 
+    lcd.clear();
+  }
 
   };
 
@@ -58,37 +83,38 @@ void loop(){
   lcd.setCursor(0,2);
   lcd.print("Y Value: ");
   lcd.print(joy_y_value);
-  delay(100);
+  
+  //Serial.write("X: ");
+  Serial.write(joy_x_value);
+  //Serial.write(LF);
+//  Serial.write("Y: ");
+//  Serial.write(joy_y_value);
+//  Serial.write(0x08);
+  
+  delay(50);
   lcd.clear();
 
 }
 
-void get_x_value(){
-    int joy_x_raw = analogRead(joy_x_pin);
-    joy_y_value = analogRead(joy_y_pin); 
+int get_x_value(){
+    joy_x_raw = analogRead(joy_x_pin);
     
     x_old_range = (x_old_max - x_old_min);
     x_new_range = (x_new_max - x_new_min);
     
-    joy_x_value = x_new_range;
-}
-void get_y_value(){
-   joy_x_value = analogRead(joy_x_pin);
-  joy_y_value = analogRead(joy_y_pin);  
-}
-//
-//
-//int main(void){
-//
-////*** VARIABLE DECS ***//
-//
-////*** SETUP RECEIVER PARSES ***//
-//
-//    //x
-//     x_old_range = (x_old_max - x_old_min);
-//     x_new_range = (x_new_max - x_new_min);
-//
-//    //y
-//     y_old_range = (y_old_max - y_old_min);
-//     y_new_range = (y_new_max - y_new_min);
-
+    joy_x_modified = (((joy_x_raw - x_old_min) * x_new_range) / x_old_range) + x_new_min; 
+    
+    //return joy_x_modified; //DEBUG!
+    return joy_x_raw;
+  }
+int get_y_value(){
+    int joy_y_raw = analogRead(joy_y_pin);
+    
+    y_old_range = (y_old_max - y_old_min);
+    y_new_range = (y_new_max - y_new_min);
+    
+    joy_y_modified = (((joy_y_raw - y_old_min) * y_new_range) / y_old_range) + y_new_min; 
+    
+    //return joy_y_modified; //DEBUG!
+    return joy_y_raw;
+  }
