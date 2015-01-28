@@ -1,34 +1,14 @@
 /*
- Example Arduino sketch for
- SainSmart IIC/I2C/TWI Serial 2004 20x4 LCD Module Shield For Arduino UNO MEGA R3
- http://www.sainsmart.com/sainsmart-iic-i2c-twi-serial-2004-20x4-lcd-module-shield-for-arduino-uno-mega-r3.html
+Initial code to setup joystick, lcd, and bluetooth for the land based rover.
  
- and
- 
- Real Time Clock DS3231 (when displaying temperature will be omitted can be used also for DS1307
- http://macetech.com/store/index.php?main_page=product_info&products_id=8 
- http://nicegear.co.nz/raspberry-pi/high-precision-real-time-clock-for-raspberry-pi/
-
- 
- This example uses F Malpartida's NewLiquidCrystal library. Obtain from:
- https://bitbucket.org/fmalpartida/new-liquidcrystal 
- 
- This example also uses Tennsy Time.h library. Obtain from:
- http://www.pjrc.com/teensy/td_libs_Time.html 
- 
- Tested on:
- Arduino Pro Mini, Arduino Uno - A4 (SDA), A5 (SCL)
- Arduino Mega 2560 - 20 (SDA), 21 (SCL)
- 
- Last modified: 16-Dec-2013
- 
+Last modified: 27 Jan 2015 
 */
+
 #include <Wire.h>
 #include <LCD.h>
 #include <LiquidCrystal_I2C.h>
-#include <Time.h>
 
-#define I2C_ADDR      0x3F // I2C address of PCF8574A
+#define I2C_ADDR      0x3F
 #define BACKLIGHT_PIN 3
 #define En_pin        2
 #define Rw_pin        1
@@ -38,91 +18,77 @@
 #define D6_pin        6
 #define D7_pin        7
 
-int sensorPin = A0;    // select the input pin for the potentiometer
-int sensorPin2 = A1;
-int buttonPin = 7;
+int joy_x_pin = A0;    // select the input pin for the potentiometer
+int joy_y_pin = A1;
+int joy_button_pin = 7;
 int ledPin = 13;      // select the pin for the LED
-int sensorValue = 0;  // variable to store the value coming from the sensor
-int sensorValue2 = 0;
+int joy_x_value = 0;  // variable to store the value coming from the sensor
+int joy_y_value = 0;
 
+int x_old_range, y_old_range;
+int x_new_range, y_new_range;
+int x_old_max = 1022, y_old_max = 1022;
+int x_old_min = 20, y_old_min = 20;
+int x_new_max = 100, y_new_max = 100;
+int x_new_min =  0, y_new_min =  0;
 
-LiquidCrystal_I2C twilcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin, BACKLIGHT_PIN, POSITIVE);
+LiquidCrystal_I2C lcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin, BACKLIGHT_PIN, POSITIVE);
 
-//////////////////////////////////////////////////////////////
-#define TRIGGER_INIT_VALUE  0
-#define INTERVAL_INIT_VALUE 1
-#define INTERVAL_MAX_VALUE  512
-#define EMBEDDED_LED_PIN    13
-long interval = INTERVAL_INIT_VALUE;
-byte trigger;
-byte ledState = LOW;
-//////////////////////////////////////////////////////////////
 void setup(){
-
   pinMode(ledPin, OUTPUT); 
-pinMode(buttonPin, INPUT);
-Serial.begin(9600); 
+  pinMode(joy_button_pin, INPUT);
+  Serial.begin(9600); 
 
-  pinMode(EMBEDDED_LED_PIN, OUTPUT);
-  trigger = TRIGGER_INIT_VALUE;
-  twilcd.begin(20,4);
-  twilcd.home();
-  //1234567890123456
-  //I2C/TWI BackPack
-    twilcd.clear();
+  lcd.begin(20,4);
+  lcd.home();
+  lcd.clear();
   
 
 
   };
 
 void loop(){
-    // read the value from the sensor:
-  sensorValue = analogRead(sensorPin);
-  sensorValue2 = analogRead(sensorPin2);   
+  joy_x_value = get_x_value();
+  joy_y_value = get_y_value();  
   
-    twilcd.print("Control Firmware .01");
-  twilcd.setCursor(0,1);
-  twilcd.print("X Value: ");
-  twilcd.print(sensorValue); 
-  twilcd.setCursor(0,2);
-  twilcd.print("Y Value: ");
-  twilcd.print(sensorValue2);
-    delay(100);
-  twilcd.clear();
+  lcd.print("Control Firmware .01");
+  lcd.setCursor(0,1);
+  lcd.print("X Value: ");
+  lcd.print(joy_x_value); 
+  lcd.setCursor(0,2);
+  lcd.print("Y Value: ");
+  lcd.print(joy_y_value);
+  delay(100);
+  lcd.clear();
 
 }
-//*** GLOBAL VARIABLE DECS ***//
-int ch1_old_range, ch2_old_range;
-int ch1_new_range, ch2_new_range;
-int ch1_old_max = 1970, ch2_old_max = 1970;
-int ch1_old_min = 970, ch2_old_min = 970;
-int ch1_new_max = 126, ch2_new_max = 126;
-int ch1_new_min =  0, ch2_new_min =  0;
 
-
-
-//*** FUNCTION FORWARD DECS ***//
-void setup_io();
-void setup_uart_1(); //bluetooth communication
-void setup_uart_2(); //motor controller communication
-void setup_timer_1();
-void setup_ic_2();
-void setup_ic_3();
-void get_ch1_value(); //receive, measure, and convert PWM signal to serial data for motor control
-void get_ch2_value();
-
-
-int main(void){
-
-//*** VARIABLE DECS ***//
-
-//*** SETUP RECEIVER PARSES ***//
-
-    //ch1
-     ch1_old_range = (ch1_old_max - ch1_old_min);
-     ch1_new_range = (ch1_new_max - ch1_new_min);
-
-    //ch2
-     ch2_old_range = (ch2_old_max - ch2_old_min);
-     ch2_new_range = (ch2_new_max - ch2_new_min);
+void get_x_value(){
+    int joy_x_raw = analogRead(joy_x_pin);
+    joy_y_value = analogRead(joy_y_pin); 
+    
+    x_old_range = (x_old_max - x_old_min);
+    x_new_range = (x_new_max - x_new_min);
+    
+    joy_x_value = x_new_range;
+}
+void get_y_value(){
+   joy_x_value = analogRead(joy_x_pin);
+  joy_y_value = analogRead(joy_y_pin);  
+}
+//
+//
+//int main(void){
+//
+////*** VARIABLE DECS ***//
+//
+////*** SETUP RECEIVER PARSES ***//
+//
+//    //x
+//     x_old_range = (x_old_max - x_old_min);
+//     x_new_range = (x_new_max - x_new_min);
+//
+//    //y
+//     y_old_range = (y_old_max - y_old_min);
+//     y_new_range = (y_new_max - y_new_min);
 
